@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pi-lean-tools"
+version = "0.1.0"
+description = "Advisory Lean API scout and local mathlib search tools for Pi agents."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "pi-lean-tools contributors" }
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

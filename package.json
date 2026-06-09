@@ -1,0 +1,34 @@
+{
+  "name": "pi-lean-tools",
+  "version": "0.1.0",
+  "description": "Advisory Lean API scout and local mathlib search tools for Pi agents.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "lean",
+    "mathlib",
+    "proof-tools"
+  ],
+  "license": "MIT",
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "latest",
+    "typebox": "^1.1.0",
+    "typescript": "latest"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
