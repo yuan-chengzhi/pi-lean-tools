@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .diagnostics import contains_sorry_warning
+from .error_explain import explain_error
 from .policy import ToolEnvelope, make_provenance
 from .project import has_lake_config, mathlib_revision, read_lean_toolchain, resolve_project_root
 from .runner import lean_source, run_lean_probe
@@ -33,17 +34,25 @@ def check_snippet(
     status = run.status
     if status == "elaborated" and contains_sorry and not allow_sorry:
         status = "elab_failed"
+    data: dict[str, Any] = {
+        "mode": mode,
+        "imports": imports,
+        "contains_sorry": contains_sorry,
+        "allow_sorry": allow_sorry,
+        "snippet_has_proof_like_declaration": _has_proof_like_declaration(code),
+        "run": run.as_dict(),
+    }
+    if run.first_error:
+        explanation = explain_error(error_message=run.first_error, surrounding_code=code)
+        data["error_explanation"] = {
+            "failure_kind": explanation["data"]["failure_kind"],
+            "missing_names": explanation["data"].get("missing_names", []),
+            "suggested_actions": explanation["data"]["suggested_actions"],
+        }
     envelope = ToolEnvelope(
         tool="lean_check_snippet",
         status=status,
-        data={
-            "mode": mode,
-            "imports": imports,
-            "contains_sorry": contains_sorry,
-            "allow_sorry": allow_sorry,
-            "snippet_has_proof_like_declaration": _has_proof_like_declaration(code),
-            "run": run.as_dict(),
-        },
+        data=data,
         diagnostics=run.diagnostics,
         provenance=make_provenance(
             project_root=root,

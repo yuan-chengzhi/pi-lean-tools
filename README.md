@@ -26,6 +26,9 @@ Final formal closure still belongs to the project verifier / FinalVerify path.
 
 - `lean_check_names`: run `#check` probes for candidate Lean names.
 - `lean_check_snippet`: elaborate a small Lean snippet in the current project.
+  Failed snippets include an inline `error_explanation` (failure kind, missing
+  names, suggested next probes), so a separate `lean_error_explain` call is
+  rarely needed.
 - `lean_decl_search`: search local project and local Mathlib source declarations.
 - `lean_error_explain`: classify common Lean diagnostics and propose next tool calls.
 - `lean_premise_search`: build route-local premise groups from local declarations.
