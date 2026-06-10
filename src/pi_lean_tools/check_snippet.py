@@ -26,6 +26,8 @@ def check_snippet(
         project_root=root,
         source=lean_source(imports, code),
         timeout_sec=timeout_sec,
+        imports=imports,
+        code=code,
     )
     contains_sorry = contains_sorry_warning(run.diagnostics) or "sorry" in code
     status = run.status

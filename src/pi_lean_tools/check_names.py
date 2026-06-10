@@ -26,7 +26,13 @@ def check_names(
 
     for name in names:
         source = lean_source(imports, f"#check {name}")
-        run = run_lean_probe(project_root=root, source=source, timeout_sec=timeout_sec)
+        run = run_lean_probe(
+            project_root=root,
+            source=source,
+            timeout_sec=timeout_sec,
+            imports=imports,
+            code=f"#check {name}",
+        )
         checked_paths.append(str(run.checked_file))
         all_diagnostics.extend(run.diagnostics)
         exists = run.status == "elaborated"

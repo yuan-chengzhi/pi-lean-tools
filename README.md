@@ -88,6 +88,31 @@ and runner failures always re-run. Cached results carry `cache_hit: true` in
 the run payload. The cache stores advisory probe observations only; it creates
 no proof authority.
 
+## Persistent REPL Daemon
+
+When a leanprover-community/repl binary is available, probe tools route through
+a persistent daemon that keeps the `import Mathlib` environment in memory, so
+warm probes return in milliseconds instead of re-elaborating imports per call
+(measured on a Mathlib workspace: ~23s cold vs 0.01-0.06s warm).
+
+- `PI_LEAN_TOOLS_REPL_BIN` points at the repl binary. Without it, the runner
+  auto-detects `<project_root>/../repl/.lake/build/bin/repl` and
+  `<project_root>/repl/.lake/build/bin/repl`.
+- `PI_LEAN_TOOLS_REPL=off` disables the daemon path entirely.
+- The first probe spawns the daemon in the background and falls back to the
+  cold lake/lean runner while the daemon prewarms `Mathlib` (a few seconds of
+  olean loading). Subsequent probes hit the warm daemon.
+- Any daemon problem (missing binary, timeout, crash) degrades to the cold
+  runner, never to a probe failure. On a probe timeout the daemon restarts its
+  repl child.
+- The daemon exits after two hours idle and holds one repl process per
+  (project root, repl binary) pair. Probe results from the daemon carry
+  `runner_mode: "repl_daemon"` and feed the same probe cache.
+
+The repl binary must be built with the same toolchain as the target project
+(`lean-toolchain` match), e.g. the prebuilt repl in the ContextSwarmJudge
+lean-service workspace.
+
 ## Current Main-Repo Integration
 
 Current swarm-level integration lives in the active main repository:

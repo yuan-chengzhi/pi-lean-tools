@@ -14,6 +14,7 @@ from .diagnostics import first_error, parse_diagnostics
 from .policy import truncate_text
 from .probe_cache import load_cached_probe, probe_cache_key, store_cached_probe
 from .project import has_lake_config, mathlib_revision, read_lean_toolchain
+from .repl_client import repl_probe, resolve_repl_bin, socket_path_for
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,8 @@ def run_lean_probe(
     source: str,
     timeout_sec: int = 15,
     prefer_lake_lean: bool = True,
+    imports: list[str] | None = None,
+    code: str | None = None,
 ) -> LeanRunResult:
     cache_key = probe_cache_key(
         source=source,
@@ -68,6 +71,17 @@ def run_lean_probe(
     cached = load_cached_probe(cache_key)
     if cached is not None:
         return _result_from_cache(cached["result"], lookup_elapsed_ms=int((time.monotonic() - started_lookup) * 1000))
+
+    if imports is not None and code is not None:
+        repl_result = _run_repl_probe(
+            project_root=project_root,
+            imports=imports,
+            code=code,
+            timeout_sec=timeout_sec,
+        )
+        if repl_result is not None:
+            _store_probe_result(cache_key, repl_result)
+            return repl_result
 
     tmp_root = Path(tempfile.gettempdir()) / "pi-lean-tools"
     tmp_root.mkdir(parents=True, exist_ok=True)
@@ -165,6 +179,76 @@ def _store_probe_result(cache_key: str, result: LeanRunResult) -> None:
             "runner_mode": result.runner_mode,
         },
     )
+
+
+def _run_repl_probe(
+    *,
+    project_root: Path,
+    imports: list[str],
+    code: str,
+    timeout_sec: int,
+) -> LeanRunResult | None:
+    started = time.monotonic()
+    response = repl_probe(
+        project_root=project_root,
+        imports=imports,
+        code=code,
+        timeout_sec=float(timeout_sec),
+    )
+    if response is None:
+        return None
+    diagnostics = _repl_diagnostics(response)
+    status = "elab_failed" if any(item["severity"] == "error" for item in diagnostics) else "elaborated"
+    repl_bin = resolve_repl_bin(project_root)
+    socket_ref = str(socket_path_for(project_root, repl_bin)) if repl_bin else "repl-daemon"
+    return LeanRunResult(
+        status=status,
+        exit_code=0 if status == "elaborated" else 1,
+        stdout="\n".join(_render_diagnostic(item) for item in diagnostics),
+        stderr="",
+        diagnostics=diagnostics,
+        first_error=first_error(diagnostics),
+        elapsed_ms=int((time.monotonic() - started) * 1000),
+        checked_file=Path(socket_ref),
+        command=["pi-lean-tools-repl-daemon", socket_ref],
+        runner_mode="repl_daemon",
+    )
+
+
+def _repl_diagnostics(response: dict[str, Any]) -> list[dict[str, Any]]:
+    severity_map = {"info": "information", "warning": "warning", "error": "error"}
+    diagnostics: list[dict[str, Any]] = []
+    for message in response.get("messages") or []:
+        if not isinstance(message, dict):
+            continue
+        pos = message.get("pos") if isinstance(message.get("pos"), dict) else {}
+        diagnostics.append({
+            "severity": severity_map.get(str(message.get("severity")), "information"),
+            "message": str(message.get("data") or ""),
+            "file": None,
+            "line": pos.get("line"),
+            "column": pos.get("column"),
+        })
+    has_sorry_warning = any(
+        item["severity"] == "warning" and "declaration uses 'sorry'" in item["message"]
+        for item in diagnostics
+    )
+    if (response.get("sorries") or []) and not has_sorry_warning:
+        diagnostics.append({
+            "severity": "warning",
+            "message": "declaration uses 'sorry'",
+            "file": None,
+            "line": None,
+            "column": None,
+        })
+    return diagnostics
+
+
+def _render_diagnostic(item: dict[str, Any]) -> str:
+    line = item.get("line")
+    column = item.get("column")
+    location = f"{line}:{column}: " if line is not None and column is not None else ""
+    return f"{location}{item['severity']}: {item['message']}"
 
 
 def _result_from_cache(result: dict[str, Any], *, lookup_elapsed_ms: int) -> LeanRunResult:
