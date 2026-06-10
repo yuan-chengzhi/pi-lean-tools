@@ -70,6 +70,24 @@ authority.
 The TypeScript Pi extension is a thin wrapper over the Python CLI. Core behavior
 lives in `src/pi_lean_tools` so it can be tested and reused outside Pi.
 
+## Probe Result Cache
+
+`lean_scout_check_names` and `lean_scout_check_snippet` cache probe outcomes on
+disk, keyed by probe source content plus the project's `lean-toolchain` and
+Mathlib revision. Repeated probes (including identical probes from parallel
+swarm attempts) return in milliseconds instead of re-elaborating `import
+Mathlib` (~20-30s per cold probe on a Mathlib workspace).
+
+- `PI_LEAN_TOOLS_CACHE_DIR` selects the cache directory. Point all attempts of
+  a swarm run at the same directory to share probe results across workers.
+  Default: `<tmpdir>/pi-lean-tools/probe_cache`.
+- `PI_LEAN_TOOLS_PROBE_CACHE=off` disables the cache.
+
+Only deterministic outcomes (`elaborated`, `elab_failed`) are cached; timeouts
+and runner failures always re-run. Cached results carry `cache_hit: true` in
+the run payload. The cache stores advisory probe observations only; it creates
+no proof authority.
+
 ## Current Main-Repo Integration
 
 Current swarm-level integration lives in the active main repository:

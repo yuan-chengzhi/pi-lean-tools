@@ -12,7 +12,8 @@ import uuid
 
 from .diagnostics import first_error, parse_diagnostics
 from .policy import truncate_text
-from .project import has_lake_config
+from .probe_cache import load_cached_probe, probe_cache_key, store_cached_probe
+from .project import has_lake_config, mathlib_revision, read_lean_toolchain
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class LeanRunResult:
     checked_file: Path
     command: list[str]
     runner_mode: str
+    cache_hit: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -40,6 +42,7 @@ class LeanRunResult:
             "checked_file_ref": str(self.checked_file),
             "command": self.command,
             "runner_mode": self.runner_mode,
+            "cache_hit": self.cache_hit,
         }
 
 
@@ -55,6 +58,17 @@ def run_lean_probe(
     timeout_sec: int = 15,
     prefer_lake_lean: bool = True,
 ) -> LeanRunResult:
+    cache_key = probe_cache_key(
+        source=source,
+        project_root=project_root,
+        lean_toolchain=read_lean_toolchain(project_root),
+        mathlib_revision=mathlib_revision(project_root),
+    )
+    started_lookup = time.monotonic()
+    cached = load_cached_probe(cache_key)
+    if cached is not None:
+        return _result_from_cache(cached["result"], lookup_elapsed_ms=int((time.monotonic() - started_lookup) * 1000))
+
     tmp_root = Path(tempfile.gettempdir()) / "pi-lean-tools"
     tmp_root.mkdir(parents=True, exist_ok=True)
     checked_file = tmp_root / f"probe_{uuid.uuid4().hex}.lean"
@@ -96,6 +110,7 @@ def run_lean_probe(
                 runner_mode=_runner_mode(command, lake_available),
             )
             if completed.returncode == 0 or _should_not_try_next_runner(completed.stderr):
+                _store_probe_result(cache_key, result)
                 return result
             last = result
         except subprocess.TimeoutExpired as error:
@@ -130,7 +145,42 @@ def run_lean_probe(
             )
             last = result
     assert last is not None
+    _store_probe_result(cache_key, last)
     return last
+
+
+def _store_probe_result(cache_key: str, result: LeanRunResult) -> None:
+    store_cached_probe(
+        cache_key,
+        result={
+            "status": result.status,
+            "exit_code": result.exit_code,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "diagnostics": result.diagnostics,
+            "first_error": result.first_error,
+            "elapsed_ms": result.elapsed_ms,
+            "checked_file": str(result.checked_file),
+            "command": result.command,
+            "runner_mode": result.runner_mode,
+        },
+    )
+
+
+def _result_from_cache(result: dict[str, Any], *, lookup_elapsed_ms: int) -> LeanRunResult:
+    return LeanRunResult(
+        status=str(result["status"]),
+        exit_code=result.get("exit_code"),
+        stdout=str(result.get("stdout") or ""),
+        stderr=str(result.get("stderr") or ""),
+        diagnostics=list(result.get("diagnostics") or []),
+        first_error=result.get("first_error"),
+        elapsed_ms=lookup_elapsed_ms,
+        checked_file=Path(str(result.get("checked_file") or "")),
+        command=list(result.get("command") or []),
+        runner_mode=str(result.get("runner_mode") or "unknown"),
+        cache_hit=True,
+    )
 
 
 def _runner_mode(command: list[str], lake_available: bool) -> str:
