@@ -36,6 +36,10 @@ Final formal closure still belongs to the project verifier / FinalVerify path.
   `norm_num`, ...) against one goal declaration; `Try this:` suggestions from
   `exact?`/`apply?` name the exact closing lemma. With the REPL daemon warm, a
   full portfolio completes in well under a second.
+- `lean_loogle_search`: fuzzy Mathlib search via Loogle — type-pattern queries
+  (`Nat.Coprime _ _ -> Nat.gcd _ _ = 1`) and indexed name/constant queries
+  (`"coprime", "mul"`). Top hits are verified against the local Mathlib
+  revision with `#check` probes and annotated `exists_in_local_revision`.
 
 The Pi extension exposes these as:
 
@@ -45,6 +49,7 @@ The Pi extension exposes these as:
 - `lean_scout_error_explain`
 - `lean_scout_premise_search`
 - `lean_scout_try_tactics`
+- `lean_scout_loogle`
 
 The package also exposes the `lean-api-scout` skill. The skill is a natural
 entry point for agents writing Lean code: it tells them when to check names,
@@ -121,6 +126,29 @@ The repl binary must be built with the same toolchain as the target project
 (`lean-toolchain` match), e.g. the prebuilt repl in the ContextSwarmJudge
 lean-service workspace.
 
+## Loogle Fuzzy Search
+
+`lean_loogle_search` resolves backends in this order:
+
+1. `PI_LEAN_TOOLS_LOOGLE_URL` — any loogle JSON server, queried at
+   `<url>/json?q=...`.
+2. A local loogle binary (`PI_LEAN_TOOLS_LOOGLE_BIN`, or auto-detected at
+   `~/Documents/loogle/.lake/build/bin/loogle`), wrapped in a persistent
+   daemon. The first daemon start builds the search index (a few minutes) and
+   persists it next to the daemon socket; later starts reload it with
+   `--read-index`. Warm queries answer in well under a second.
+3. `https://loogle.lean-lang.org` — only when `PI_LEAN_TOOLS_LOOGLE_REMOTE=on`.
+   Off by default: the hosted index tracks a different Mathlib revision, and
+   queries leak goal statements to an external service, which matters for
+   blind evaluation runs.
+
+Because any backend may index a different Mathlib revision than the local
+workspace, top hits are verified with local `#check` probes (probe-cache and
+REPL-daemon fast) and annotated `exists_in_local_revision`. Build a local
+loogle with a toolchain close to the workspace
+(`git clone https://github.com/nomeata/loogle && lake exe cache get && lake
+build loogle`, picking the commit whose `lean-toolchain` matches).
+
 ## Current Main-Repo Integration
 
 Current swarm-level integration lives in the active main repository:
@@ -185,6 +213,14 @@ PYTHONPATH=src python3 -m pi_lean_tools.cli decl-search \
 
 PYTHONPATH=src python3 -m pi_lean_tools.cli error-explain \
   --error-message 'Unknown constant `Nat.not_coprime_iff_exists_prime_dvd.mp`'
+
+PYTHONPATH=src python3 -m pi_lean_tools.cli loogle-search \
+  --project-root /path/to/lean/project \
+  --query 'Nat.Coprime _ _ -> Nat.gcd _ _ = 1'
+
+PYTHONPATH=src python3 -m pi_lean_tools.cli try-tactics \
+  --project-root /path/to/lean/project \
+  --goal 'example (a b : Nat) : a + b = b + a'
 
 PYTHONPATH=src python3 -m pi_lean_tools.cli premise-search \
   --project-root /path/to/lean/project \

@@ -322,6 +322,44 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerTool({
+    name: "lean_scout_loogle",
+    label: "Lean Scout Loogle Search",
+    description:
+      "Fuzzy Mathlib search via Loogle: type-pattern queries like 'Nat.Coprime _ _ -> Nat.gcd _ _ = 1' or indexed constant/name queries like '\"coprime\", \"mul\"'. Top hits are verified against the local Mathlib revision. Advisory context only; not proof authority.",
+    promptSnippet:
+      "Use lean_scout_loogle when you can describe a lemma's type shape but do not know its name.",
+    promptGuidelines: [
+      "Use lean_scout_loogle with a type pattern (e.g. 'List.replicate (_ + _) _ = _') when you know the statement shape but not the name.",
+      "Use lean_scout_loogle with quoted name fragments (e.g. '\"coprime\", \"mul\"') to enumerate a lemma family.",
+      "Trust hits with exists_in_local_revision=true; for false hits the local Mathlib revision differs, so confirm with lean_scout_decl_search before use.",
+      "On query_error, follow the suggestions field; loogle query syntax is strict about patterns vs terms.",
+      "Prefer lean_scout_loogle over repeated guess-and-check name probes when more than two name guesses fail.",
+      "lean_scout_loogle results are advisory context only, not proof evidence.",
+    ],
+    parameters: Type.Object({
+      query: Type.String(),
+      projectRoot: Type.Optional(Type.String()),
+      verifyNames: Type.Optional(Type.Boolean()),
+      verifyLimit: Type.Optional(Type.Number()),
+      timeoutSec: Type.Optional(Type.Number()),
+    }),
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const timeoutSec = params.timeoutSec ?? DEFAULT_PROBE_TIMEOUT_SEC;
+      const args = [
+        "loogle-search",
+        ...projectArgs(params.projectRoot, ctx.cwd),
+        "--timeout-sec",
+        String(timeoutSec),
+        "--query",
+        params.query,
+      ];
+      if (params.verifyNames === false) args.push("--no-verify-names");
+      if (params.verifyLimit !== undefined) args.push("--verify-limit", String(params.verifyLimit));
+      return runCli("lean_scout_loogle", args, ctx.cwd, signal, timeoutSec * 2 * 1000 + 10_000);
+    },
+  });
+
+  pi.registerTool({
     name: "lean_scout_try_tactics",
     label: "Lean Scout Try Tactics",
     description:

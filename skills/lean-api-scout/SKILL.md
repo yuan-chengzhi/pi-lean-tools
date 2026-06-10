@@ -36,6 +36,10 @@ Scout when any of these apply:
 - Use `lean_scout_error_explain` first for a concrete Lean diagnostic. Follow
   its suggested scout calls when useful.
 - Use `lean_scout_decl_search` when you know keywords but not exact names.
+- Use `lean_scout_loogle` when you can write the statement's type shape but
+  not its name (e.g. `Nat.Coprime _ _ -> Nat.gcd _ _ = 1`), or to enumerate a
+  lemma family with quoted fragments (`"coprime", "mul"`). Only trust hits
+  with `exists_in_local_revision=true`.
 - Use `lean_scout_check_names` before relying on candidate declaration names.
 - Use `lean_scout_check_snippet` for focused code probes involving coercions,
   theorem shapes, rewrite syntax, or local API combinations.

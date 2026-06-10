@@ -13,6 +13,7 @@ from .check_snippet import check_snippet
 from .decl_search import search_declarations
 from .error_explain import explain_error
 from .premise_search import search_premise_groups
+from .loogle_search import loogle_search
 from .project import DEFAULT_PROJECT_ROOT_ENV
 from .try_tactics import try_tactics
 
@@ -42,6 +43,12 @@ def main(argv: list[str] | None = None) -> int:
     error_parser = subparsers.add_parser("error-explain")
     error_parser.add_argument("--error-message", required=True)
     error_parser.add_argument("--surrounding-code")
+
+    loogle_parser = subparsers.add_parser("loogle-search")
+    _add_project_args(loogle_parser)
+    loogle_parser.add_argument("--query", required=True)
+    loogle_parser.add_argument("--no-verify-names", action="store_true")
+    loogle_parser.add_argument("--verify-limit", type=int, default=8)
 
     try_tactics_parser = subparsers.add_parser("try-tactics")
     _add_project_args(try_tactics_parser)
@@ -120,6 +127,14 @@ def _dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return explain_error(
             error_message=args.error_message,
             surrounding_code=args.surrounding_code,
+        )
+    if args.command == "loogle-search":
+        return loogle_search(
+            project_root=args.project_root,
+            query=args.query,
+            verify_names=not args.no_verify_names,
+            verify_limit=args.verify_limit,
+            timeout_sec=args.timeout_sec,
         )
     if args.command == "try-tactics":
         return try_tactics(
