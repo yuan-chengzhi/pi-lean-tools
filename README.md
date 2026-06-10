@@ -32,6 +32,10 @@ Final formal closure still belongs to the project verifier / FinalVerify path.
 - `lean_decl_search`: search local project and local Mathlib source declarations.
 - `lean_error_explain`: classify common Lean diagnostics and propose next tool calls.
 - `lean_premise_search`: build route-local premise groups from local declarations.
+- `lean_try_tactics`: run a closing-tactic portfolio (`exact?`, `simp`, `omega`,
+  `norm_num`, ...) against one goal declaration; `Try this:` suggestions from
+  `exact?`/`apply?` name the exact closing lemma. With the REPL daemon warm, a
+  full portfolio completes in well under a second.
 
 The Pi extension exposes these as:
 
@@ -40,6 +44,7 @@ The Pi extension exposes these as:
 - `lean_scout_decl_search`
 - `lean_scout_error_explain`
 - `lean_scout_premise_search`
+- `lean_scout_try_tactics`
 
 The package also exposes the `lean-api-scout` skill. The skill is a natural
 entry point for agents writing Lean code: it tells them when to check names,

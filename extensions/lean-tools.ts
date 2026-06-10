@@ -320,4 +320,45 @@ export default function (pi: ExtensionAPI) {
       return runCli("lean_scout_premise_search", args, ctx.cwd, signal);
     },
   });
+
+  pi.registerTool({
+    name: "lean_scout_try_tactics",
+    label: "Lean Scout Try Tactics",
+    description:
+      "Run a closing-tactic portfolio (exact?, simp, omega, norm_num, ...) against one Lean goal declaration. exact?/apply? suggestions report the exact lemma closing the goal, so this doubles as premise search. Advisory probe only; not proof authority.",
+    promptSnippet:
+      "Use lean_scout_try_tactics on a focused subgoal before hand-writing a proof for it.",
+    promptGuidelines: [
+      "Use lean_scout_try_tactics with a self-contained declaration header like 'example (h : 0 < n) : n ≠ 0', without ':= by ...'.",
+      "Use lean_scout_try_tactics on extracted sorry subgoals to learn which standard tactic or lemma closes them.",
+      "Read the suggestions field: 'Try this: exact <lemma> ...' names the exact Mathlib premise to reuse.",
+      "lean_scout_try_tactics outcomes are advisory probe evidence only; the full candidate must still pass FinalVerify.",
+      "Do not submit tactics forbidden by the theorem contract even if they close the probe goal.",
+      "lean_scout_try_tactics uses PI_LEAN_TOOLS_PROJECT_ROOT when projectRoot is omitted and the runner configured it.",
+    ],
+    parameters: Type.Object({
+      goalDeclaration: Type.String(),
+      projectRoot: Type.Optional(Type.String()),
+      imports: Type.Optional(Type.Array(Type.String())),
+      tactics: Type.Optional(Type.Array(Type.String())),
+      timeoutSec: Type.Optional(Type.Number()),
+      stopAfterFirstClose: Type.Optional(Type.Boolean()),
+    }),
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const timeoutSec = params.timeoutSec ?? DEFAULT_PROBE_TIMEOUT_SEC;
+      const args = [
+        "try-tactics",
+        ...projectArgs(params.projectRoot, ctx.cwd),
+        ...importArgs(params.imports),
+        "--timeout-sec",
+        String(timeoutSec),
+        "--goal",
+        params.goalDeclaration,
+      ];
+      for (const tactic of params.tactics ?? []) args.push("--tactic", tactic);
+      if (params.stopAfterFirstClose) args.push("--stop-after-first-close");
+      const tacticCount = (params.tactics ?? []).length || 10;
+      return runCli("lean_scout_try_tactics", args, ctx.cwd, signal, timeoutSec * tacticCount * 1000 + 10_000);
+    },
+  });
 }

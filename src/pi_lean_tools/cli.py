@@ -14,6 +14,7 @@ from .decl_search import search_declarations
 from .error_explain import explain_error
 from .premise_search import search_premise_groups
 from .project import DEFAULT_PROJECT_ROOT_ENV
+from .try_tactics import try_tactics
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,6 +42,12 @@ def main(argv: list[str] | None = None) -> int:
     error_parser = subparsers.add_parser("error-explain")
     error_parser.add_argument("--error-message", required=True)
     error_parser.add_argument("--surrounding-code")
+
+    try_tactics_parser = subparsers.add_parser("try-tactics")
+    _add_project_args(try_tactics_parser)
+    try_tactics_parser.add_argument("--goal", required=True, help="declaration header without ':= by ...'")
+    try_tactics_parser.add_argument("--tactic", action="append", default=[])
+    try_tactics_parser.add_argument("--stop-after-first-close", action="store_true")
 
     premise_parser = subparsers.add_parser("premise-search")
     _add_project_args(premise_parser, include_timeout=False)
@@ -113,6 +120,15 @@ def _dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return explain_error(
             error_message=args.error_message,
             surrounding_code=args.surrounding_code,
+        )
+    if args.command == "try-tactics":
+        return try_tactics(
+            project_root=args.project_root,
+            goal_declaration=args.goal,
+            imports=args.imports or ["Mathlib"],
+            tactics=args.tactic or None,
+            timeout_sec=args.timeout_sec,
+            stop_after_first_close=args.stop_after_first_close,
         )
     if args.command == "premise-search":
         return search_premise_groups(

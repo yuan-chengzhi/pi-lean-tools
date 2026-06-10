@@ -41,6 +41,10 @@ Scout when any of these apply:
   theorem shapes, rewrite syntax, or local API combinations.
 - Use `lean_scout_premise_search` when the task needs a group of related
   premises rather than one exact theorem.
+- Use `lean_scout_try_tactics` on a self-contained subgoal (an `example ...`
+  header without `:= by`) before hand-writing its proof. It runs a closing
+  portfolio (`exact?`, `simp`, `omega`, `norm_num`, ...); read `suggestions`
+  for `Try this:` lemma names, which is the fastest premise search available.
 
 When a scout result changes what you trust, reflect that in the next Lean
 candidate or in `worker_report.json`:
