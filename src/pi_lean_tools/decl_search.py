@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from .policy import ToolEnvelope, make_provenance
+from .policy import ToolEnvelope, guarded_declarations, is_banned_path, make_provenance
 from .project import mathlib_revision, project_lean_roots, read_lean_toolchain, resolve_project_root
 
 
@@ -114,21 +114,29 @@ def score_bucket(score: float) -> str:
 
 def _iter_decl_records(project_root: Path, *, include_mathlib: bool, include_local: bool) -> list[DeclRecord]:
     roots = project_lean_roots(project_root, include_mathlib=include_mathlib)
+    guarded = guarded_declarations()
     records: list[DeclRecord] = []
     for root in roots:
         if not include_local and project_root in root.parents and ".lake" not in root.parts:
             continue
         files = [root] if root.is_file() else sorted(root.rglob("*.lean"))
         for path in files:
-            if _is_banned_path(path):
+            if is_banned_path(path):
                 continue
             lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+            file_records: list[DeclRecord] = []
+            file_guarded = False
             for index, line in enumerate(lines, start=1):
                 match = DECL_RE.match(line)
                 if not match:
                     continue
+                if match.group("name") in guarded:
+                    # A file declaring a guarded target may be a solutions
+                    # artifact; drop the whole file, not just the declaration.
+                    file_guarded = True
+                    break
                 snippet = _statement_snippet(lines, index - 1)
-                records.append(
+                file_records.append(
                     DeclRecord(
                         name=match.group("name"),
                         kind=match.group("kind"),
@@ -139,6 +147,8 @@ def _iter_decl_records(project_root: Path, *, include_mathlib: bool, include_loc
                         source="local_mathlib_source" if ".lake" in path.parts else "local_project_source",
                     )
                 )
+            if not file_guarded:
+                records.extend(file_records)
     return records
 
 
@@ -194,6 +204,3 @@ def _relative_or_abs(path: Path, root: Path) -> str:
         return str(path)
 
 
-def _is_banned_path(path: Path) -> bool:
-    normalized = str(path).replace("\\", "/")
-    return any(token in normalized for token in ("candidate_repaired.lean", "solution.lean", "Putnam2025/A1/solution.lean"))

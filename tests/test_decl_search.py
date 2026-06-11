@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 import unittest
+from unittest import mock
 
 from pi_lean_tools.decl_search import search_declarations
+from pi_lean_tools.policy import GUARDED_DECLS_ENV
 
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "mini_lean_project"
@@ -33,6 +35,20 @@ class DeclSearchTests(unittest.TestCase):
         self.assertFalse(any("candidate_repaired.lean" in path for path in inspected))
         names = [item["name"] for item in payload["data"]["matches"]]
         self.assertNotIn("hidden_teacher_solution", names)
+
+    def test_guarded_declaration_excludes_whole_file(self) -> None:
+        with mock.patch.dict("os.environ", {GUARDED_DECLS_ENV: "demo_guarded_target"}):
+            payload = search_declarations(project_root=FIXTURE, query="demo", include_mathlib=False)
+        names = [item["name"] for item in payload["data"]["matches"]]
+        self.assertNotIn("demo_guarded_target", names)
+        self.assertNotIn("demo_scratch_companion", names)
+        self.assertIn("demo_add_zero", names)
+
+    def test_without_guard_scratch_file_is_indexed(self) -> None:
+        with mock.patch.dict("os.environ", {GUARDED_DECLS_ENV: ""}):
+            payload = search_declarations(project_root=FIXTURE, query="demo scratch companion", include_mathlib=False)
+        names = [item["name"] for item in payload["data"]["matches"]]
+        self.assertIn("demo_scratch_companion", names)
 
 
 if __name__ == "__main__":

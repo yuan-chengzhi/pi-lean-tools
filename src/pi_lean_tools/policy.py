@@ -3,15 +3,35 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Any
 
 
 BANNED_PATH_TOKENS = (
     "candidate_repaired.lean",
-    "solution.lean",
-    "Putnam2025/A1/solution.lean",
+    "solution",
+    "answer",
+    "teacher",
 )
+
+GUARDED_DECLS_ENV = "PI_LEAN_TOOLS_GUARDED_DECLS"
+
+
+def guarded_declarations() -> frozenset[str]:
+    """Declaration names whose declaring files must never be indexed.
+
+    The harness sets PI_LEAN_TOOLS_GUARDED_DECLS (comma- or
+    whitespace-separated) from the theorem contract, so a solutions file is
+    excluded by what it declares, not by what it happens to be named.
+    """
+    raw = os.environ.get(GUARDED_DECLS_ENV, "")
+    return frozenset(item.strip() for item in raw.replace(",", " ").split() if item.strip())
+
+
+def is_banned_path(path: Path | str) -> bool:
+    normalized = str(path).replace("\\", "/").lower()
+    return any(token in normalized for token in BANNED_PATH_TOKENS)
 
 
 def authority() -> dict[str, Any]:
@@ -52,14 +72,7 @@ class ToolEnvelope:
 
 
 def banned_sources_used(paths: list[str] | tuple[str, ...]) -> list[str]:
-    found: list[str] = []
-    for raw in paths:
-        normalized = raw.replace("\\", "/")
-        for token in BANNED_PATH_TOKENS:
-            if token in normalized:
-                found.append(raw)
-                break
-    return found
+    return [raw for raw in paths if is_banned_path(raw)]
 
 
 def make_provenance(

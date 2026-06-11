@@ -83,6 +83,20 @@ authority.
 The TypeScript Pi extension is a thin wrapper over the Python CLI. Core behavior
 lives in `src/pi_lean_tools` so it can be tested and reused outside Pi.
 
+## Solution-File Guard
+
+`lean_decl_search` and `lean_premise_search` never index files whose path
+contains a banned token (`solution`, `answer`, `teacher`,
+`candidate_repaired.lean`; case-insensitive).
+
+Path names are not trusted as the only line of defense. When
+`PI_LEAN_TOOLS_GUARDED_DECLS` is set (comma- or whitespace-separated
+declaration names, normally the locked target theorem from the contract), any
+file declaring one of those names is dropped from the index entirely — a
+solutions artifact is excluded by what it declares, not by what it happens to
+be named. The formal-loop harness exports this automatically from the theorem
+contract.
+
 ## Probe Result Cache
 
 `lean_scout_check_names` and `lean_scout_check_snippet` cache probe outcomes on
