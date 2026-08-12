@@ -16,6 +16,17 @@ const SRC_ROOT = resolve(PACKAGE_ROOT, "src");
 const DEFAULT_PROJECT_ROOT_ENV = "PI_LEAN_TOOLS_PROJECT_ROOT";
 const DEFAULT_PROBE_TIMEOUT_SEC = 60;
 const ROUTE_NEUTRAL = process.env.PI_LEAN_TOOLS_ROUTE_NEUTRAL === "1";
+const STRIP_HOST_CONTROL_ENV = process.env.PI_LEAN_TOOLS_STRIP_HOST_CONTROL_ENV === "1";
+const HOST_CONTROL_ENV = [
+  "PMW_TOOL_SOCKET",
+  "PMW_TOOL_CHANNEL_REF",
+  "PMW_TOOL_TOKEN_FD",
+  "PMW_TOOL_ALLOWLIST",
+  "PMW_SEARCH_BROKER_URL",
+  "PMW_SEARCH_BROKER_SECRET",
+  "PI_CODING_AGENT_DIR",
+  "PI_CODING_AGENT_SESSION_DIR",
+] as const;
 
 function execFileText(
   command: string,
@@ -23,10 +34,13 @@ function execFileText(
   options: { cwd: string; signal?: AbortSignal; timeoutMs?: number },
 ): Promise<ExecResult> {
   return new Promise((resolvePromise) => {
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       PYTHONPATH: process.env.PYTHONPATH ? `${SRC_ROOT}:${process.env.PYTHONPATH}` : SRC_ROOT,
     };
+    if (STRIP_HOST_CONTROL_ENV) {
+      for (const name of HOST_CONTROL_ENV) delete env[name];
+    }
     const sandboxProfile = process.env.PI_LEAN_TOOLS_SANDBOX_PROFILE;
     const sandboxExec = process.env.PI_LEAN_TOOLS_SANDBOX_EXEC ?? "/usr/bin/sandbox-exec";
     const executable = sandboxProfile ? sandboxExec : command;

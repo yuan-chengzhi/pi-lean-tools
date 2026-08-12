@@ -101,6 +101,11 @@ Set `PI_LEAN_TOOLS_ALLOWED_PROJECT_ROOT` when the host must confine every
 explicit `projectRoot` argument to one exact project. Requests for another root
 then fail before the Python scout starts.
 
+Set `PI_LEAN_TOOLS_STRIP_HOST_CONTROL_ENV=1` when the parent Pi process holds
+host-control credentials. The extension then removes Pi session/config and PMW
+socket/broker credential variables from every Python/Lean scout subprocess.
+This does not remove project, toolchain, proxy, cache, or network settings.
+
 ## Solution-File Guard
 
 `lean_decl_search` and `lean_premise_search` never index files whose path
