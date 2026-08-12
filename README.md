@@ -83,6 +83,24 @@ authority.
 The TypeScript Pi extension is a thin wrapper over the Python CLI. Core behavior
 lives in `src/pi_lean_tools` so it can be tested and reused outside Pi.
 
+## Optional process sandbox
+
+When `PI_LEAN_TOOLS_SANDBOX_PROFILE` is set, the extension launches every
+Python/Lean scout subprocess through macOS `sandbox-exec -f <profile>`. Set
+`PI_LEAN_TOOLS_SANDBOX_EXEC` only when the executable is at a nonstandard
+location. This hook lets a host give scouts the same filesystem and network
+authority as its other research tools; it does not filter mathematical content
+or turn scout output into proof evidence.
+
+Set `PI_LEAN_TOOLS_ROUTE_NEUTRAL=1` to expose the complete scout tool surface
+without injecting the extension's optional Lean-use prompt snippets and
+guidelines. This is useful when a research protocol makes Lean available but
+must not prefer formalization over other mathematical modalities.
+
+Set `PI_LEAN_TOOLS_ALLOWED_PROJECT_ROOT` when the host must confine every
+explicit `projectRoot` argument to one exact project. Requests for another root
+then fail before the Python scout starts.
+
 ## Solution-File Guard
 
 `lean_decl_search` and `lean_premise_search` never index files whose path

@@ -15,6 +15,7 @@ const PACKAGE_ROOT = resolve(EXTENSION_DIR, "..");
 const SRC_ROOT = resolve(PACKAGE_ROOT, "src");
 const DEFAULT_PROJECT_ROOT_ENV = "PI_LEAN_TOOLS_PROJECT_ROOT";
 const DEFAULT_PROBE_TIMEOUT_SEC = 60;
+const ROUTE_NEUTRAL = process.env.PI_LEAN_TOOLS_ROUTE_NEUTRAL === "1";
 
 function execFileText(
   command: string,
@@ -26,9 +27,15 @@ function execFileText(
       ...process.env,
       PYTHONPATH: process.env.PYTHONPATH ? `${SRC_ROOT}:${process.env.PYTHONPATH}` : SRC_ROOT,
     };
+    const sandboxProfile = process.env.PI_LEAN_TOOLS_SANDBOX_PROFILE;
+    const sandboxExec = process.env.PI_LEAN_TOOLS_SANDBOX_EXEC ?? "/usr/bin/sandbox-exec";
+    const executable = sandboxProfile ? sandboxExec : command;
+    const executableArgs = sandboxProfile
+      ? ["-f", sandboxProfile, command, ...args]
+      : args;
     const child = execFile(
-      command,
-      args,
+      executable,
+      executableArgs,
       {
         cwd: options.cwd,
         env,
@@ -126,7 +133,12 @@ async function runCli(
 
 function projectArgs(projectRoot: string | undefined, ctxCwd: string): string[] {
   const configuredRoot = projectRoot ?? process.env[DEFAULT_PROJECT_ROOT_ENV] ?? ".";
-  return ["--project-root", resolve(ctxCwd, configuredRoot)];
+  const resolvedRoot = resolve(ctxCwd, configuredRoot);
+  const confinedRoot = process.env.PI_LEAN_TOOLS_ALLOWED_PROJECT_ROOT;
+  if (confinedRoot !== undefined && resolve(confinedRoot) !== resolvedRoot) {
+    throw new Error("projectRoot is outside the host-authorized Lean scout project");
+  }
+  return ["--project-root", resolvedRoot];
 }
 
 function importArgs(imports: string[] | undefined): string[] {
@@ -140,9 +152,9 @@ export default function (pi: ExtensionAPI) {
     label: "Lean Scout Check Names",
     description:
       "Run #check probes for candidate Lean declaration names in a Lake project. Use for uncertain Mathlib names, names suggested by search, and names involved in Unknown constant/identifier errors. Advisory context only; not proof authority.",
-    promptSnippet:
+    promptSnippet: ROUTE_NEUTRAL ? undefined :
       "Use lean_scout_check_names before relying on Lean declaration names you are not sure exist.",
-    promptGuidelines: [
+    promptGuidelines: ROUTE_NEUTRAL ? [] : [
       "Use lean_scout_check_names when you are about to write or reuse a theorem/definition name from memory.",
       "Use lean_scout_check_names before reusing names that caused Unknown constant or unknown identifier errors.",
       "Use lean_scout_check_names after lean_scout_decl_search to confirm exact names and theorem shapes.",
@@ -176,9 +188,9 @@ export default function (pi: ExtensionAPI) {
     label: "Lean Scout Check Snippet",
     description:
       "Elaborate a small Lean snippet in a Lake project. Use for focused API/type-shape probes before committing larger Lean proof edits. Returns elaboration diagnostics only; not proof authority.",
-    promptSnippet:
+    promptSnippet: ROUTE_NEUTRAL ? undefined :
       "Use lean_scout_check_snippet for small Lean API probes before writing larger API-dependent proof code.",
-    promptGuidelines: [
+    promptGuidelines: ROUTE_NEUTRAL ? [] : [
       "Use lean_scout_check_snippet for coercions, gcd/coprime APIs, finite set APIs, divisibility rewrites, type mismatch repair, or tactic-local theorem shape checks.",
       "Use lean_scout_check_snippet when a current frontier is blocked on a small API/type-shape question instead of guessing inside a large candidate edit.",
       "lean_scout_check_snippet probes can be recorded in worker_report.json under needed_external_checks kind=snippet.",
@@ -218,9 +230,9 @@ export default function (pi: ExtensionAPI) {
     label: "Lean Scout Declaration Search",
     description:
       "Search local project and local Mathlib source declarations by name or statement tokens. Use when you know keywords or a mathematical role but not the exact Lean declaration name. Advisory context only.",
-    promptSnippet:
+    promptSnippet: ROUTE_NEUTRAL ? undefined :
       "Use lean_scout_decl_search instead of guessing Mathlib names from memory.",
-    promptGuidelines: [
+    promptGuidelines: ROUTE_NEUTRAL ? [] : [
       "Use lean_scout_decl_search for Unknown constant, uncertain namespace, theorem-family lookup, or a proof step that needs a known Mathlib lemma.",
       "Use lean_scout_decl_search before turning an uncertain theorem-family guess into candidate Lean code.",
       "lean_scout_decl_search results can be recorded in worker_report.json under needed_external_checks kind=api_name.",
@@ -256,9 +268,9 @@ export default function (pi: ExtensionAPI) {
     label: "Lean Scout Error Explain",
     description:
       "Classify a Lean diagnostic and return concrete next scout actions. Use immediately after Unknown constant, unknown identifier, failed rewrite, type mismatch, or suspicious Mathlib API failure. Advisory context only.",
-    promptSnippet:
+    promptSnippet: ROUTE_NEUTRAL ? undefined :
       "Use lean_scout_error_explain to turn Lean errors into concrete check/search probes.",
-    promptGuidelines: [
+    promptGuidelines: ROUTE_NEUTRAL ? [] : [
       "Use lean_scout_error_explain when the previous checker feedback includes a named Lean diagnostic.",
       "Use lean_scout_error_explain when checker feedback is concrete enough to quote; it is the fastest scout entry after compile_failed.",
       "lean_scout_error_explain diagnostics that remain unresolved can be summarized in worker_report.json as needed_external_checks.",
@@ -282,9 +294,9 @@ export default function (pi: ExtensionAPI) {
     label: "Lean Scout Premise Search",
     description:
       "Build advisory route-local premise groups from local Lean declarations. Use when a proof task likely needs several related premises rather than one exact theorem. Search results are context only.",
-    promptSnippet:
+    promptSnippet: ROUTE_NEUTRAL ? undefined :
       "Use lean_scout_premise_search when you know the proof role but need a premise bundle.",
-    promptGuidelines: [
+    promptGuidelines: ROUTE_NEUTRAL ? [] : [
       "Use lean_scout_premise_search for finite image, injectivity, gcd/coprime, divisibility, parity, absolute value, or descent premise roles.",
       "Use lean_scout_premise_search when you can describe the proof role but do not yet know the local Mathlib premise family.",
       "lean_scout_premise_search needs can be recorded in worker_report.json under needed_external_checks kind=premise_search.",
@@ -326,9 +338,9 @@ export default function (pi: ExtensionAPI) {
     label: "Lean Scout Loogle Search",
     description:
       "Fuzzy Mathlib search via Loogle: type-pattern queries like 'Nat.Coprime _ _ -> Nat.gcd _ _ = 1' or indexed constant/name queries like '\"coprime\", \"mul\"'. Top hits are verified against the local Mathlib revision. Advisory context only; not proof authority.",
-    promptSnippet:
+    promptSnippet: ROUTE_NEUTRAL ? undefined :
       "Use lean_scout_loogle when you can describe a lemma's type shape but do not know its name.",
-    promptGuidelines: [
+    promptGuidelines: ROUTE_NEUTRAL ? [] : [
       "Use lean_scout_loogle with a type pattern (e.g. 'List.replicate (_ + _) _ = _') when you know the statement shape but not the name.",
       "Use lean_scout_loogle with quoted name fragments (e.g. '\"coprime\", \"mul\"') to enumerate a lemma family.",
       "Trust hits with exists_in_local_revision=true; for false hits the local Mathlib revision differs, so confirm with lean_scout_decl_search before use.",
@@ -364,9 +376,9 @@ export default function (pi: ExtensionAPI) {
     label: "Lean Scout Try Tactics",
     description:
       "Run a closing-tactic portfolio (exact?, simp, omega, norm_num, ...) against one Lean goal declaration. exact?/apply? suggestions report the exact lemma closing the goal, so this doubles as premise search. Advisory probe only; not proof authority.",
-    promptSnippet:
+    promptSnippet: ROUTE_NEUTRAL ? undefined :
       "Use lean_scout_try_tactics on a focused subgoal before hand-writing a proof for it.",
-    promptGuidelines: [
+    promptGuidelines: ROUTE_NEUTRAL ? [] : [
       "Use lean_scout_try_tactics with a self-contained declaration header like 'example (h : 0 < n) : n ≠ 0', without ':= by ...'.",
       "Use lean_scout_try_tactics on extracted sorry subgoals to learn which standard tactic or lemma closes them.",
       "Read the suggestions field: 'Try this: exact <lemma> ...' names the exact Mathlib premise to reuse.",
