@@ -161,6 +161,11 @@ function importArgs(imports: string[] | undefined): string[] {
 }
 
 export default function (pi: ExtensionAPI) {
+  pi.registerCommand("lean-tools-probe", {
+    description: "Zero-model marker proving that the pinned Lean tools extension loaded",
+    handler: async () => undefined,
+  });
+
   pi.registerTool({
     name: "lean_scout_check_names",
     label: "Lean Scout Check Names",
