@@ -168,6 +168,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "lean_scout_check_names",
+    executionMode: "sequential",
     label: "Lean Scout Check Names",
     description:
       "Run #check probes for candidate Lean declaration names in a Lake project. Use for uncertain Mathlib names, names suggested by search, and names involved in Unknown constant/identifier errors. Advisory context only; not proof authority.",
@@ -204,6 +205,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "lean_scout_check_snippet",
+    executionMode: "sequential",
     label: "Lean Scout Check Snippet",
     description:
       "Elaborate a small Lean snippet in a Lake project. Use for focused API/type-shape probes before committing larger Lean proof edits. Returns elaboration diagnostics only; not proof authority.",
@@ -246,6 +248,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "lean_scout_decl_search",
+    executionMode: "sequential",
     label: "Lean Scout Declaration Search",
     description:
       "Search local project and local Mathlib source declarations by name or statement tokens. Use when you know keywords or a mathematical role but not the exact Lean declaration name. Advisory context only.",
@@ -284,6 +287,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "lean_scout_error_explain",
+    executionMode: "sequential",
     label: "Lean Scout Error Explain",
     description:
       "Classify a Lean diagnostic and return concrete next scout actions. Use immediately after Unknown constant, unknown identifier, failed rewrite, type mismatch, or suspicious Mathlib API failure. Advisory context only.",
@@ -310,6 +314,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "lean_scout_premise_search",
+    executionMode: "sequential",
     label: "Lean Scout Premise Search",
     description:
       "Build advisory route-local premise groups from local Lean declarations. Use when a proof task likely needs several related premises rather than one exact theorem. Search results are context only.",
@@ -354,6 +359,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "lean_scout_loogle",
+    executionMode: "sequential",
     label: "Lean Scout Loogle Search",
     description:
       "Fuzzy Mathlib search via Loogle: type-pattern queries like 'Nat.Coprime _ _ -> Nat.gcd _ _ = 1' or indexed constant/name queries like '\"coprime\", \"mul\"'. Top hits are verified against the local Mathlib revision. Advisory context only; not proof authority.",
@@ -392,6 +398,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "lean_scout_try_tactics",
+    executionMode: "sequential",
     label: "Lean Scout Try Tactics",
     description:
       "Run a closing-tactic portfolio (exact?, simp, omega, norm_num, ...) against one Lean goal declaration. exact?/apply? suggestions report the exact lemma closing the goal, so this doubles as premise search. Advisory probe only; not proof authority.",
